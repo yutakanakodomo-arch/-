@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💰 ポイント一覧</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal:      #3D7A78;
+      --teal-lt:   #5A9E9C;
+      --teal-pale: #EAF4F4;
+      --warm1:     #E8833A;  /* オレンジ */
+      --warm2:     #D4A843;  /* ゴールド */
+      --warm3:     #C06B3D;  /* テラコッタ */
+      --red:       #C8463D;  /* 期限切れ・期限間近 */
+      --bg:        #F7F5F2;
+      --dark:      #2D2D2D;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body {
+      font-family:'Noto Sans JP',sans-serif;
+      background:var(--bg);
+      color:var(--dark);
+      min-height:100vh;
+      padding-bottom:48px;
+    }
+
+    /* ========== HEADER ========== */
+    .header {
+      background:var(--teal);
+      position:sticky; top:0; z-index:100;
+      padding:0 18px;
+    }
+    .header-title-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 0 10px;
+      border-bottom:1px solid rgba(255,255,255,0.15);
+    }
+    .header-title {
+      font-size:16px; font-weight:700; letter-spacing:0.08em; color:white;
+      white-space:nowrap;
+    }
+    .header-title span {
+      font-size:10px; letter-spacing:0.14em;
+      color:rgba(255,255,255,0.6); font-weight:300; margin-left:8px;
+      vertical-align:middle;
+    }
+    .stats-mini { display:flex; gap:14px; align-items:center; }
+    .stat-item  { display:flex; flex-direction:column; align-items:center; gap:1px; }
+    .stat-num   { font-size:17px; font-weight:700; line-height:1; color:white; }
+    .stat-num.alert { color:#FFD3C2; }
+    .stat-lbl   { font-size:9px; font-weight:300; color:rgba(255,255,255,0.6); letter-spacing:0.08em; white-space:nowrap; }
+    @media (max-width:420px) { .header-title span { display:none; } }
+    .stat-sep   { width:1px; height:22px; background:rgba(255,255,255,0.2); }
+
+    /* 並び替えタブ */
+    .view-tabs { display:flex; border-bottom:1px solid rgba(255,255,255,0.15); }
+    .view-tab {
+      flex:1; padding:9px 0;
+      border:none; background:none;
+      font-size:11px; font-weight:300; color:rgba(255,255,255,0.55);
+      cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+      letter-spacing:0.06em;
+      border-bottom:2px solid transparent; margin-bottom:-1px;
+      transition:all 0.2s;
+    }
+    .view-tab.active { color:white; border-bottom-color:white; font-weight:700; }
+
+    .header-link-row { padding:8px 0 10px; }
+    .header-link {
+      font-size:11px; font-weight:300; color:rgba(255,255,255,0.6);
+      text-decoration:none; letter-spacing:0.06em;
+    }
+    .header-link:hover { color:white; }
+
+    /* ========== CONTENT ========== */
+    .content { padding:14px; max-width:480px; margin:0 auto; }
+
+    .section-title {
+      font-size:13px; font-weight:900;
+      padding:7px 12px; border-radius:10px;
+      margin-bottom:10px; display:inline-block;
+    }
+    .st-urgent { background:rgba(200,70,61,0.10); color:var(--red); }
+    .st-all    { background:rgba(61,122,120,0.12); color:#2a6260; }
+    .section { margin-bottom:22px; }
+
+    /* POINT CARD */
+    .card {
+      background:white; border-radius:14px;
+      box-shadow:0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom:10px; overflow:hidden;
+      border-left:4px solid var(--teal);
+    }
+    .card.soon    { border-left-color:var(--warm1); }
+    .card.urgent  { border-left-color:var(--red); }
+    .card.expired { border-left-color:#BBB; opacity:0.7; }
+
+    .card-top {
+      display:flex; align-items:flex-start; justify-content:space-between; gap:8px;
+      padding:11px 12px 4px;
+    }
+    .card-name { font-size:14px; font-weight:900; word-break:break-all; }
+    .card-actions { display:flex; gap:2px; flex-shrink:0; }
+    .icon-btn {
+      background:none; border:none; font-size:12px; color:#CCC;
+      cursor:pointer; padding:2px 6px; border-radius:5px;
+      transition:all 0.2s; font-family:'Noto Sans JP',sans-serif;
+    }
+    .icon-btn:hover { background:var(--teal-pale); color:var(--teal); }
+    .icon-btn.del:hover { background:#FFF5F0; color:var(--warm1); }
+
+    .card-mid {
+      display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;
+      padding:2px 12px 6px;
+    }
+    .bal-input {
+      width:7.5em; padding:2px 4px;
+      border:none; border-bottom:2px solid #EEE;
+      font-size:22px; font-weight:700; color:var(--dark);
+      font-family:'Noto Sans JP',sans-serif;
+      background:transparent; outline:none; transition:border-color 0.2s;
+    }
+    .bal-input:focus { border-bottom-color:var(--teal); }
+    .bal-unit { font-size:12px; color:#AAA; }
+    .bal-yen  { font-size:12px; color:#888; margin-left:auto; }
+
+    .card-bottom {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:6px 12px 10px; border-top:1px solid #F5F5F5;
+    }
+    .badge {
+      font-size:10px; font-weight:700; padding:2px 8px;
+      border-radius:99px; color:white; white-space:nowrap;
+    }
+    .b-none    { background:#DDD; color:#888; }
+    .b-ok      { background:var(--teal-lt); }
+    .b-soon    { background:var(--warm1); }
+    .b-urgent  { background:var(--red); }
+    .b-expired { background:#999; }
+    .card-memo { font-size:11px; color:#888; flex:1; min-width:0; word-break:break-all; }
+    .card-updated { font-size:10px; color:#CCC; white-space:nowrap; }
+
+    .empty-global { text-align:center; padding:48px 20px; color:#BBB; font-size:14px; }
+    .empty-global .e-emoji { font-size:48px; margin-bottom:12px; }
+
+    /* ADD / EDIT FORM */
+    .add-btn {
+      width:100%; padding:11px;
+      background:white; border:2px dashed #DDD; border-radius:12px;
+      font-size:12px; color:#AAA; cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+      transition:all 0.2s;
+    }
+    .add-btn:hover { border-color:var(--teal); color:var(--teal); }
+    .form {
+      display:none; background:white; border-radius:12px;
+      padding:14px 12px; box-shadow:0 2px 12px rgba(0,0,0,0.08); margin-top:6px;
+    }
+    .form.open { display:block; }
+    .form-title { font-size:12px; font-weight:900; color:var(--teal); margin-bottom:10px; }
+    .field { margin-bottom:10px; }
+    .field label {
+      font-size:11px; color:#AAA; font-weight:700; display:block; margin-bottom:4px;
+    }
+    .field small { font-weight:400; color:#BBB; margin-left:4px; }
+    .field-row { display:flex; gap:8px; }
+    .field-row .field { flex:1; min-width:0; }
+    .form-input {
+      width:100%; padding:8px 10px;
+      border:2px solid #EEE; border-radius:9px;
+      font-size:16px; font-family:'Noto Sans JP',sans-serif;
+      background:#FAFAFA; outline:none; transition:border-color 0.2s;
+    }
+    .form-input:focus { border-color:var(--teal); background:white; }
+    .form-btns { display:flex; gap:6px; justify-content:flex-end; margin-top:4px; }
+    .btn-ok {
+      padding:8px 16px; background:var(--teal); color:white;
+      border:none; border-radius:9px; font-size:13px; font-weight:700;
+      cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+    }
+    .btn-cancel {
+      padding:8px 10px; background:none; color:#AAA;
+      border:none; font-size:13px; cursor:pointer;
+      font-family:'Noto Sans JP',sans-serif;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <!-- タイトル＋統計 -->
+  <div class="header-title-row">
+    <div class="header-title">ポイント一覧<span>my points</span></div>
+    <div class="stats-mini">
+      <div class="stat-item">
+        <div class="stat-num" id="statYen">¥0</div>
+        <div class="stat-lbl">円換算</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <div class="stat-num" id="statUrgent">0</div>
+        <div class="stat-lbl">期限間近</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <div class="stat-num" id="statCount">0</div>
+        <div class="stat-lbl">登録数</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 並び替え -->
+  <div class="view-tabs">
+    <button class="view-tab active" data-sort="expiry" onclick="switchSort('expiry')">期限が近い順</button>
+    <button class="view-tab"        data-sort="value"  onclick="switchSort('value')">価値が高い順</button>
+    <button class="view-tab"        data-sort="name"   onclick="switchSort('name')">名前順</button>
+  </div>
+
+  <div class="header-link-row">
+    <a class="header-link" href="index.html">🛒 お買い物リストへ</a>
+  </div>
+</div>
+
+<div class="content">
+  <div id="mainContent"></div>
+
+  <button class="add-btn" id="addBtn" onclick="openForm()">＋ ポイントを追加</button>
+  <div class="form" id="pointForm">
+    <div class="form-title" id="formTitle">新しいポイント</div>
+    <div class="field">
+      <label for="fName">ポイント名</label>
+      <input class="form-input" id="fName" list="presetList" placeholder="例：楽天ポイント（期間限定）">
+      <datalist id="presetList"></datalist>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="fBalance">残高 (pt)</label>
+        <input class="form-input" id="fBalance" type="number" inputmode="numeric" min="0" placeholder="0">
+      </div>
+      <div class="field">
+        <label for="fRate">1pt＝何円<small>ふつうは1</small></label>
+        <input class="form-input" id="fRate" type="number" inputmode="decimal" min="0" step="0.01" value="1">
+      </div>
+    </div>
+    <div class="field">
+      <label for="fExpiry">有効期限<small>なければ空欄</small></label>
+      <input class="form-input" id="fExpiry" type="date">
+    </div>
+    <div class="field">
+      <label for="fMemo">メモ<small>使えるお店など</small></label>
+      <input class="form-input" id="fMemo" placeholder="例：楽天市場・西友で使える">
+    </div>
+    <div class="form-btns">
+      <button class="btn-cancel" onclick="closeForm()">キャンセル</button>
+      <button class="btn-ok" id="formOk" onclick="submitForm()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = [
+  '楽天ポイント', '楽天ポイント（期間限定）', 'Vポイント', 'dポイント', 'dポイント（期間・用途限定）',
+  'Pontaポイント', 'PayPayポイント', 'WAON POINT', 'nanacoポイント', 'Amazonポイント',
+  'JRE POINT', 'マイル',
+];
+// 「期限が近い」と判断する日数
+const URGENT_DAYS = 30;
+const SOON_DAYS   = 90;
+
+function load() {
+  return JSON.parse(localStorage.getItem('pointData_v1') || 'null') || { points: [] };
+}
+function save(d) { localStorage.setItem('pointData_v1', JSON.stringify(d)); }
+
+let data = load();
+let currentSort = 'expiry';
+let editingId   = null;
+
+/* ========== 計算ヘルパー ========== */
+function todayStr() {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;
+}
+// 有効期限までの残り日数（期限なしは null）
+function daysLeft(p) {
+  if (!p.expiry) return null;
+  const [y, m, d] = p.expiry.split('-').map(Number);
+  const exp = new Date(y, m-1, d);
+  const n = new Date();
+  const today = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return Math.round((exp - today) / 86400000);
+}
+function yenValue(p) { return Math.floor((p.balance || 0) * (p.rate ?? 1)); }
+function status(p) {
+  const dl = daysLeft(p);
+  if (dl === null)       return 'none';
+  if (dl < 0)            return 'expired';
+  if (dl <= URGENT_DAYS) return 'urgent';
+  if (dl <= SOON_DAYS)   return 'soon';
+  return 'ok';
+}
+function fmt(n) { return Number(n || 0).toLocaleString('ja-JP'); }
+
+/* ========== 並び替え ========== */
+function switchSort(s) {
+  currentSort = s;
+  document.querySelectorAll('.view-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.sort === s);
+  });
+  render();
+}
+
+function sorted(list) {
+  const arr = [...list];
+  if (currentSort === 'value') {
+    arr.sort((a, b) => yenValue(b) - yenValue(a));
+  } else if (currentSort === 'name') {
+    arr.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  } else {
+    // 期限が近い順：期限切れは最後、期限なしはその前
+    const key = p => {
+      const dl = daysLeft(p);
+      if (dl === null) return 1e9;
+      if (dl < 0)      return 2e9 + dl;
+      return dl;
+    };
+    arr.sort((a, b) => key(a) - key(b));
+  }
+  return arr;
+}
+
+/* ========== RENDER ========== */
+function render() {
+  renderStats();
+  const main = document.getElementById('mainContent');
+
+  if (!data.points.length) {
+    main.innerHTML = `<div class="empty-global"><div class="e-emoji">💰</div>
+      貯めているポイントを追加してください</div>`;
+    return;
+  }
+
+  let html = '';
+  // 期限30日以内（残高あり）のものを「先に使う」として上に出す
+  const urgent = sorted(data.points)
+    .filter(p => status(p) === 'urgent' && p.balance > 0)
+    .sort((a, b) => daysLeft(a) - daysLeft(b));
+  if (urgent.length) {
+    html += `<div class="section">
+      <div class="section-title st-urgent">⚠️ 先に使うポイント（期限${URGENT_DAYS}日以内）</div>
+      ${urgent.map(cardHTML).join('')}
+    </div>`;
+  }
+
+  html += `<div class="section">
+    <div class="section-title st-all">💰 すべてのポイント</div>
+    ${sorted(data.points).map(cardHTML).join('')}
+  </div>`;
+
+  main.innerHTML = html;
+}
+
+function renderStats() {
+  const active = data.points.filter(p => status(p) !== 'expired');
+  const yen    = active.reduce((sum, p) => sum + yenValue(p), 0);
+  const urgent = data.points.filter(p => status(p) === 'urgent' && p.balance > 0).length;
+  document.getElementById('statYen').textContent    = '¥' + fmt(yen);
+  document.getElementById('statCount').textContent  = data.points.length;
+  const u = document.getElementById('statUrgent');
+  u.textContent = urgent;
+  u.classList.toggle('alert', urgent > 0);
+}
+
+function badgeHTML(p) {
+  const st = status(p);
+  const dl = daysLeft(p);
+  if (st === 'none')    return `<span class="badge b-none">期限なし</span>`;
+  if (st === 'expired') return `<span class="badge b-expired">期限切れ</span>`;
+  const label = dl === 0 ? '今日まで' : `あと${dl}日`;
+  const [, m, d] = p.expiry.split('-').map(Number);
+  return `<span class="badge b-${st}">${label}（${m}/${d}）</span>`;
+}
+
+function cardHTML(p) {
+  const st = status(p);
+  const rate = p.rate ?? 1;
+  return `<div class="card ${st}">
+    <div class="card-top">
+      <div class="card-name">${esc(p.name)}</div>
+      <div class="card-actions">
+        <button class="icon-btn" onclick="openForm('${p.id}')">編集</button>
+        <button class="icon-btn del" onclick="deletePoint('${p.id}')">🗑</button>
+      </div>
+    </div>
+    <div class="card-mid">
+      <input class="bal-input" type="number" inputmode="numeric" min="0"
+        value="${p.balance}" aria-label="${esc(p.name)}の残高"
+        onchange="updateBalance('${p.id}', this.value)">
+      <span class="bal-unit">pt</span>
+      <span class="bal-yen">≈ ¥${fmt(yenValue(p))}${rate !== 1 ? `（1pt＝${rate}円）` : ''}</span>
+    </div>
+    <div class="card-bottom">
+      ${badgeHTML(p)}
+      <span class="card-memo">${esc(p.memo || '')}</span>
+      <span class="card-updated">${p.updatedAt ? formatDate(p.updatedAt) + ' 更新' : ''}</span>
+    </div>
+  </div>`;
+}
+
+function formatDate(s) {
+  const [, m, d] = s.split('-').map(Number);
+  return `${m}/${d}`;
+}
+
+/* ========== ACTIONS ========== */
+// カードの残高欄を直接書き換えたとき
+function updateBalance(id, value) {
+  const p = data.points.find(p => p.id === id);
+  if (!p) return;
+  p.balance = Math.max(0, Number(value) || 0);
+  p.updatedAt = todayStr();
+  save(data);
+  const sy = window.scrollY;
+  render();
+  requestAnimationFrame(() => window.scrollTo(0, sy));
+}
+
+function deletePoint(id) {
+  const p = data.points.find(p => p.id === id);
+  if (!p || !confirm(`「${p.name}」を削除しますか？`)) return;
+  data.points = data.points.filter(p => p.id !== id);
+  save(data); render();
+}
+
+function openForm(id) {
+  editingId = id || null;
+  const p = id ? data.points.find(p => p.id === id) : null;
+  document.getElementById('formTitle').textContent = p ? 'ポイントを編集' : '新しいポイント';
+  document.getElementById('formOk').textContent    = p ? '保存' : '追加';
+  document.getElementById('fName').value    = p ? p.name : '';
+  document.getElementById('fBalance').value = p ? p.balance : '';
+  document.getElementById('fRate').value    = p ? (p.rate ?? 1) : 1;
+  document.getElementById('fExpiry').value  = p ? (p.expiry || '') : '';
+  document.getElementById('fMemo').value    = p ? (p.memo || '') : '';
+  document.getElementById('pointForm').classList.add('open');
+  document.getElementById('addBtn').style.display = 'none';
+  document.getElementById('pointForm').scrollIntoView({ behavior:'smooth', block:'center' });
+  setTimeout(() => document.getElementById('fName').focus(), 300);
+}
+
+function closeForm() {
+  editingId = null;
+  document.getElementById('pointForm').classList.remove('open');
+  document.getElementById('addBtn').style.display = '';
+}
+
+function submitForm() {
+  const nameEl = document.getElementById('fName');
+  const name = nameEl.value.trim();
+  if (!name) { nameEl.focus(); return; }
+  const rateRaw = document.getElementById('fRate').value;
+  const fields = {
+    name,
+    balance: Math.max(0, Number(document.getElementById('fBalance').value) || 0),
+    rate:    rateRaw === '' ? 1 : Math.max(0, Number(rateRaw)),
+    expiry:  document.getElementById('fExpiry').value,
+    memo:    document.getElementById('fMemo').value.trim(),
+    updatedAt: todayStr(),
+  };
+  const p = editingId && data.points.find(p => p.id === editingId);
+  if (p) Object.assign(p, fields);
+  else   data.points.push({ id:'p'+Date.now()+Math.random(), ...fields });
+  save(data);
+  closeForm();
+  render();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+document.getElementById('presetList').innerHTML =
+  PRESETS.map(n => `<option value="${esc(n)}">`).join('');
+
+render();
+</script>
+
+</body>
+</html>
